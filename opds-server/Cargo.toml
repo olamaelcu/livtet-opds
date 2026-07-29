@@ -1,0 +1,44 @@
+[package]
+name = "livtet-opds-server"
+version = "0.1.0"
+edition.workspace = true
+
+
+[package.metadata.workspaces]
+independent = true
+
+[dependencies]
+livtet-opds-types = { path = "../livtet-opds-types", features = ["specta"] }
+livtet-opds-atom = { path = "../livtet-opds-atom" }
+livtet-core = { workspace = true }
+livtet-database = { workspace = true, features = ["server"] }
+livtet-types = { workspace = true }
+livtet-search = { path = "../livtet-search" }
+sea-orm = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+async-trait = { workspace = true }
+tokio = { version = "1", features = ["full"] }
+poem = { workspace = true }
+thiserror = { workspace = true }
+time = { workspace = true }
+tracing = { workspace = true }
+ulid = { workspace = true }
+url = { workspace = true }
+argon2 = "0.5"
+base64 = { workspace = true }
+mime = "0.3"
+mime_guess = "2"
+futures-util = { workspace = true }
+
+[dev-dependencies]
+livtet-core = { workspace = true }
+livtet-opds-atom = { path = "../livtet-opds-atom" }
+livtet-test-utils = { path = "../livtet-test-utils" }
+livtet-search = { path = "../livtet-search" }
+poem = { workspace = true, features = ["test"] }
+roxmltree = "0.21"
+tempfile = "3"
+argon2 = { version = "0.5", features = ["std"] }
+rand = { workspace = true }
+camino = { workspace = true }

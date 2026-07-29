@@ -1,0 +1,33 @@
+[package]
+name = "livtet-opds-client"
+version = "0.1.0"
+edition.workspace = true
+
+
+[package.metadata.workspaces]
+independent = true
+
+[features]
+default = []
+atom = ["dep:livtet-opds-atom"]
+
+[dev-dependencies]
+livtet-test-utils = { path = "../livtet-test-utils" }
+mockito = "1"
+roxmltree = "0.21"
+
+[dependencies]
+livtet-opds-types = { path = "../livtet-opds-types", features = ["specta"] }
+livtet-opds-atom = { path = "../livtet-opds-atom", optional = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+reqwest = { workspace = true, features = ["stream"] }
+tokio = { version = "1", features = ["full"] }
+thiserror = { workspace = true }
+url = { workspace = true }
+time = { workspace = true }
+futures = "0.3"
+camino = { workspace = true }
+fs-err = { workspace = true }
+tempfile = { workspace = true }
+tracing = { workspace = true }

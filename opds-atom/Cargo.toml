@@ -1,0 +1,23 @@
+[package]
+name = "livtet-opds-atom"
+version = "0.1.0"
+edition.workspace = true
+
+
+[package.metadata.workspaces]
+independent = true
+
+[dependencies]
+itertools = "0.15"
+livtet-opds-types = { path = "../livtet-opds-types", features = ["specta"] }
+quick-xml = "0.41"
+serde = { workspace = true }
+serde_json = { workspace = true }
+time = { workspace = true }
+url = { workspace = true }
+
+[dev-dependencies]
+roxmltree = "0.21"
+livtet-test-utils = { path = "../livtet-test-utils" }
+mutants = { workspace = true }
+tempfile = { workspace = true }
