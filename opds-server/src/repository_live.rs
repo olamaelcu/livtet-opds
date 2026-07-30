@@ -946,17 +946,35 @@ async fn assemble_works(
     // inventory (1 per edition) — gives us cover_path and file_path.
     // The format binding lives on `editions.format_id` (canonical);
     // `digital_inventory.format_id` was removed in m0012.
+    //
+    // `digital_inventory.edition_id` is UNIQUE since m0011 in
+    // core/livet-data, so a successful query returns at most one
+    // row per edition. We use `HashMap::try_insert` to surface a
+    // duplicate row as `OpdsError::Database` instead of silently
+    // dropping it — that way, if a future migration ever drops
+    // the UNIQUE constraint, the bug shows up as a query failure
+    // rather than as a phantom cover/file on an edition.
     let inventory_by_edition: HashMap<DbId, digital_inventory::Model> = if edition_ids.is_empty() {
         HashMap::new()
     } else {
-        EditionsInventory::find()
+        let rows = EditionsInventory::find()
             .filter(digital_inventory::Column::EditionId.is_in(edition_ids.clone()))
             .all(db)
             .await
-            .map_err(db_err)?
-            .into_iter()
-            .map(|inv| (inv.edition_id, inv))
-            .collect()
+            .map_err(db_err)?;
+        let mut map = HashMap::with_capacity(rows.len());
+        for inv in rows {
+            map.try_insert(inv.edition_id, inv).map_err(|(_k, v)| {
+                OpdsError::Database(format!(
+                    "digital_inventory has duplicate edition_id {} — the \
+                     uq_digital_inventory_edition_id UNIQUE constraint should \
+                     prevent this. The schema may have been modified without \
+                     the corresponding m0011 migration.",
+                    v.edition_id,
+                ))
+            })?;
+        }
+        map
     };
 
     // format names for the format_ids we found (read from editions, the
