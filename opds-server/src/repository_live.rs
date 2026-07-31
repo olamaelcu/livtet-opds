@@ -946,6 +946,11 @@ async fn assemble_works(
     // inventory (1 per edition) — gives us cover_path and file_path.
     // The format binding lives on `editions.format_id` (canonical);
     // `digital_inventory.format_id` was removed in m0012.
+    //
+    // `digital_inventory.edition_id` is UNIQUE since m0011 in
+    // core/livet-data (uq_digital_inventory_edition_id), so the
+    // query returns at most one row per edition. The HashMap
+    // collect below cannot collide — the schema enforces it.
     let inventory_by_edition: HashMap<DbId, digital_inventory::Model> = if edition_ids.is_empty() {
         HashMap::new()
     } else {
