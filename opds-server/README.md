@@ -11,9 +11,3 @@ The piece of Livtet that turns the local SQLite library into a standard OPDS end
 ```bash
 mise run test-rust -p livtet-opds-server
 ```
-
-## Architecture
-
-- [docs/ARCHITECTURE.md](../../docs/ARCHITECTURE.md) — workspace overview
-- [docs/reference/opds/architecture.md](../../docs/reference/opds/architecture.md) — OPDS crate graph
-- [docs/reference/adr/0009-opds-2-0-protocol.md](../../docs/reference/adr/0009-opds-2-0-protocol.md) — OPDS 2.0 decision

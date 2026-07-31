@@ -11,10 +11,3 @@ The OPDS-specific vocabulary: catalogs, navigation feeds, publication entries, a
 ```bash
 mise run test-rust -p livtet-opds-types
 ```
-
-## Architecture
-
-- [docs/ARCHITECTURE.md](../../docs/ARCHITECTURE.md) — workspace overview
-- [docs/reference/opds/architecture.md](../../docs/reference/opds/architecture.md) — OPDS crate graph
-- [docs/reference/opds/type-reference.md](../../docs/reference/opds/type-reference.md) — type catalog
-- [docs/reference/adr/0009-opds-2-0-protocol.md](../../docs/reference/adr/0009-opds-2-0-protocol.md) — OPDS 2.0 decision

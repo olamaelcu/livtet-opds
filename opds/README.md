@@ -11,10 +11,3 @@ The piece of Livtet that talks to OPDS endpoints, whether a third-party reading-
 ```bash
 mise run test-rust -p livtet-opds-client
 ```
-
-## Architecture
-
-- [docs/ARCHITECTURE.md](../../docs/ARCHITECTURE.md) — workspace overview
-- [docs/reference/opds/architecture.md](../../docs/reference/opds/architecture.md) — OPDS crate graph
-- [docs/reference/adr/0009-opds-2-0-protocol.md](../../docs/reference/adr/0009-opds-2-0-protocol.md) — OPDS 2.0 decision
-- [docs/reference/adr/0024-opds-download-manager-persistence.md](../../docs/reference/adr/0024-opds-download-manager-persistence.md) — download persistence
