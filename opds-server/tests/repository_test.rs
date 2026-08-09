@@ -6,7 +6,6 @@
 
 use std::sync::Arc;
 
-use camino::Utf8Path;
 use livtet_core::{
     crud::work::CreateWorkInput,
     entities::{
@@ -19,19 +18,20 @@ use livtet_opds_server::{LivtetOpdsRepository, OpdsRepository, WorkQuery};
 use livtet_search::SearchIndex;
 use livtet_types::{DbId, KnownGenres};
 use sea_orm::{ActiveModelTrait, ActiveValue::Set, EntityTrait};
-use tempfile::TempDir;
 
 /// Build a fresh Tantivy `SearchIndex` in a temp directory and `reindex`
-/// it against the supplied database. The `TempDir` is returned so the
+/// it against the supplied database. The `Utf8TempDir` is returned so the
 /// caller can keep the directory alive for the lifetime of the index.
 ///
 /// Mirrors the helper in `crates/livtet-search/tests/integration.rs`
 /// (see `fresh_index`). We need this because `LivtetOpdsRepository`
 /// holds an `Arc<SearchIndex>` and the count / facet code paths now
 /// go through Tantivy's `matching_work_ids`.
-async fn fresh_search_index(db: &sea_orm::DatabaseConnection) -> (Arc<SearchIndex>, TempDir) {
-    let dir = tempfile::tempdir().expect("tempdir");
-    let index = SearchIndex::open(Utf8Path::from_path(dir.path()).unwrap()).expect("open index");
+async fn fresh_search_index(
+    db: &sea_orm::DatabaseConnection,
+) -> (Arc<SearchIndex>, camino_tempfile::Utf8TempDir) {
+    let dir = camino_tempfile::tempdir().expect("tempdir");
+    let index = SearchIndex::open(dir.path()).expect("open index");
     index.reindex(db).await.expect("reindex");
     (Arc::new(index), dir)
 }

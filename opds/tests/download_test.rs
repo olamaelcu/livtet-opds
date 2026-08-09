@@ -127,9 +127,9 @@ fn tmp_path(suffix: &str) -> Utf8PathBuf {
     Utf8PathBuf::from_path_buf(dir.join(suffix)).unwrap()
 }
 
-fn fresh_store_path() -> (tempfile::TempDir, Utf8PathBuf) {
-    let dir = tempfile::tempdir().expect("tempdir for download state");
-    let path = Utf8PathBuf::from_path_buf(dir.path().to_path_buf()).expect("utf8 path");
+fn fresh_store_path() -> (camino_tempfile::Utf8TempDir, Utf8PathBuf) {
+    let dir = camino_tempfile::tempdir().expect("tempdir for download state");
+    let path = dir.path().to_path_buf();
     (dir, path)
 }
 

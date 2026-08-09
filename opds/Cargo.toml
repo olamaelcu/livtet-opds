@@ -12,13 +12,13 @@ default = []
 atom = ["dep:livtet-opds-atom"]
 
 [dev-dependencies]
-livtet-test-utils = { path = "../livtet-test-utils" }
+livtet-test-utils = { workspace = true }
 mockito = "1"
 roxmltree = "0.21"
 
 [dependencies]
-livtet-opds-types = { path = "../livtet-opds-types", features = ["specta"] }
-livtet-opds-atom = { path = "../livtet-opds-atom", optional = true }
+livtet-opds-types = { path = "../opds-types", features = ["specta"] }
+livtet-opds-atom = { path = "../opds-atom", optional = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 reqwest = { workspace = true, features = ["stream"] }
@@ -29,5 +29,5 @@ time = { workspace = true }
 futures = "0.3"
 camino = { workspace = true }
 fs-err = { workspace = true }
-tempfile = { workspace = true }
+camino-tempfile = { workspace = true }
 tracing = { workspace = true }

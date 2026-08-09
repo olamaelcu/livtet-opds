@@ -8,12 +8,12 @@ edition.workspace = true
 independent = true
 
 [dependencies]
-livtet-opds-types = { path = "../livtet-opds-types", features = ["specta"] }
-livtet-opds-atom = { path = "../livtet-opds-atom" }
+livtet-opds-types = { path = "../opds-types", features = ["specta"] }
+livtet-opds-atom = { path = "../opds-atom" }
 livtet-core = { workspace = true }
-livtet-database = { workspace = true, features = ["server"] }
+livtet-data = { workspace = true, features = ["server"] }
 livtet-types = { workspace = true }
-livtet-search = { path = "../livtet-search" }
+livtet-search = { workspace = true }
 sea-orm = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
@@ -33,12 +33,12 @@ futures-util = { workspace = true }
 
 [dev-dependencies]
 livtet-core = { workspace = true }
-livtet-opds-atom = { path = "../livtet-opds-atom" }
-livtet-test-utils = { path = "../livtet-test-utils" }
-livtet-search = { path = "../livtet-search" }
+livtet-opds-atom = { path = "../opds-atom" }
+livtet-test-utils = { workspace = true }
+livtet-search = { workspace = true }
 poem = { workspace = true, features = ["test"] }
 roxmltree = "0.21"
-tempfile = "3"
+camino-tempfile = { workspace = true }
 argon2 = { version = "0.5", features = ["std"] }
 rand = { workspace = true }
 camino = { workspace = true }

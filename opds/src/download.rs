@@ -4,7 +4,7 @@ use camino::{Utf8Path, Utf8PathBuf};
 use fs_err as fs;
 use futures::StreamExt;
 use serde::{Deserialize, Serialize};
-use tempfile::NamedTempFile;
+use camino_tempfile::NamedUtf8TempFile;
 use thiserror::Error;
 use time::OffsetDateTime;
 use tokio::{io::AsyncWriteExt, sync::RwLock};
@@ -376,7 +376,7 @@ async fn persist_inner(
 
     let json = serde_json::to_string_pretty(&store)?;
     let parent = store_path.parent().unwrap_or_else(|| Utf8Path::new("."));
-    let tmp = NamedTempFile::new_in(parent.as_std_path())?;
+    let tmp = NamedUtf8TempFile::new_in(parent)?;
     fs::tokio::write(tmp.path(), &json).await?;
     tmp.persist(store_path.as_std_path())
         .map_err(|e| DownloadError::Io(e.error))?;

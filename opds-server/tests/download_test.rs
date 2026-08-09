@@ -45,16 +45,14 @@ use livtet_opds_server::{
 use livtet_opds_types::{Feed, OpdsError, Publication};
 use livtet_types::DbId;
 use sea_orm::{ActiveModelTrait, ActiveValue::Set, EntityTrait};
-use tempfile::TempDir;
 
 /// Build a fresh Tantivy `SearchIndex` in a temp directory and `reindex`
 /// it against the supplied database.
 async fn fresh_search_index(
     db: &sea_orm::DatabaseConnection,
-) -> (Arc<livtet_search::SearchIndex>, TempDir) {
-    let dir = tempfile::tempdir().expect("tempdir");
-    let index = livtet_search::SearchIndex::open(camino::Utf8Path::from_path(dir.path()).unwrap())
-        .expect("open index");
+) -> (Arc<livtet_search::SearchIndex>, camino_tempfile::Utf8TempDir) {
+    let dir = camino_tempfile::tempdir().expect("tempdir");
+    let index = livtet_search::SearchIndex::open(dir.path()).expect("open index");
     index.reindex(db).await.expect("reindex");
     (Arc::new(index), dir)
 }
@@ -116,9 +114,9 @@ fn make_app(handler: SharedOpdsHandler) -> poem::endpoint::BoxEndpoint<'static, 
 }
 
 /// Write `bytes` to `dir/name` and return the resulting path.
-fn write_file(dir: &std::path::Path, name: &str, bytes: &[u8]) -> std::path::PathBuf {
+fn write_file(dir: &camino::Utf8Path, name: &str, bytes: &[u8]) -> camino::Utf8PathBuf {
     let p = dir.join(name);
-    std::fs::write(&p, bytes).expect("write file");
+    std::fs::write(p.as_std_path(), bytes).expect("write file");
     p
 }
 
@@ -187,7 +185,7 @@ async fn get_linked_file_returns_bytes_for_valid_file() {
     let test_db = TestDb::new(None).await.expect("test db");
     let (index, _dir) = fresh_search_index(&test_db.state().db_conn()).await;
     let repo = LivtetOpdsRepository::from_state(&test_db.state(), index);
-    let tmp = tempfile::tempdir().expect("tempdir");
+    let tmp = camino_tempfile::tempdir().expect("tempdir");
     let path = write_file(tmp.path(), "book.epub", b"epub-content");
     let work_id = seed_work(&repo, "Linked Book").await;
     let edition_id = seed_edition(&repo, work_id).await;
@@ -209,7 +207,7 @@ async fn get_linked_file_picks_specific_inventory_when_requested() {
     let test_db = TestDb::new(None).await.expect("test db");
     let (search_index, _dir) = fresh_search_index(&test_db.state().db_conn()).await;
     let repo = LivtetOpdsRepository::from_state(&test_db.state(), search_index);
-    let tmp = tempfile::tempdir().expect("tempdir");
+    let tmp = camino_tempfile::tempdir().expect("tempdir");
     let epub_path = write_file(tmp.path(), "book.epub", b"epub-content");
     let pdf_path = write_file(tmp.path(), "book.pdf", b"pdf-content");
     let work_id = seed_work(&repo, "Two Format Book").await;
@@ -246,7 +244,7 @@ async fn get_linked_file_returns_missing_field_for_invalid_inventory_id() {
     let test_db = TestDb::new(None).await.expect("test db");
     let (search_index, _dir) = fresh_search_index(&test_db.state().db_conn()).await;
     let repo = LivtetOpdsRepository::from_state(&test_db.state(), search_index);
-    let tmp = tempfile::tempdir().expect("tempdir");
+    let tmp = camino_tempfile::tempdir().expect("tempdir");
     let path = write_file(tmp.path(), "book.epub", b"x");
     let work_id = seed_work(&repo, "Linked").await;
     let edition_id = seed_edition(&repo, work_id).await;
@@ -291,7 +289,7 @@ async fn get_linked_file_returns_missing_field_for_broken_symlink_and_prunes() {
     let test_db = TestDb::new(None).await.expect("test db");
     let (search_index, _dir) = fresh_search_index(&test_db.state().db_conn()).await;
     let repo = LivtetOpdsRepository::from_state(&test_db.state(), search_index);
-    let tmp = tempfile::tempdir().expect("tempdir");
+    let tmp = camino_tempfile::tempdir().expect("tempdir");
     let src = write_file(tmp.path(), "source.epub", b"target-bytes");
     let linked_dir = tmp.path().join("linked-books");
     std::fs::create_dir_all(&linked_dir).expect("mkdir");
@@ -335,7 +333,7 @@ async fn download_route_serves_file_with_correct_headers() {
     let handler = make_handler(&test_db).await;
     let (search_index, _dir) = fresh_search_index(&test_db.state().db_conn()).await;
     let repo = LivtetOpdsRepository::from_state(&test_db.state(), search_index);
-    let tmp = tempfile::tempdir().expect("tempdir");
+    let tmp = camino_tempfile::tempdir().expect("tempdir");
     let path = write_file(tmp.path(), "pride.epub", b"PRIDE-AND-PREJUDICE");
     let work_id = seed_work(&repo, "Pride and Prejudice").await;
     let edition_id = seed_edition(&repo, work_id).await;
@@ -380,7 +378,7 @@ async fn download_route_serves_first_file_when_inventory_id_omitted() {
     let handler = make_handler(&test_db).await;
     let (search_index, _dir) = fresh_search_index(&test_db.state().db_conn()).await;
     let repo = LivtetOpdsRepository::from_state(&test_db.state(), search_index);
-    let tmp = tempfile::tempdir().expect("tempdir");
+    let tmp = camino_tempfile::tempdir().expect("tempdir");
     let path = write_file(tmp.path(), "default.epub", b"DEFAULT-FILE");
     let work_id = seed_work(&repo, "Default Pick").await;
     let edition_id = seed_edition(&repo, work_id).await;
@@ -421,7 +419,7 @@ async fn mapper_emits_acquisition_link_for_edition_with_linked_file() {
     let test_db = TestDb::new(None).await.expect("test db");
     let (search_index, _dir) = fresh_search_index(&test_db.state().db_conn()).await;
     let repo = LivtetOpdsRepository::from_state(&test_db.state(), search_index);
-    let tmp = tempfile::tempdir().expect("tempdir");
+    let tmp = camino_tempfile::tempdir().expect("tempdir");
     let path = write_file(tmp.path(), "downloadable.epub", b"epub");
     let work_id = seed_work(&repo, "Acquirable").await;
     let edition_id = seed_edition(&repo, work_id).await;
@@ -550,7 +548,7 @@ async fn download_route_rejects_unauthenticated_requests_with_401() {
     let handler = make_handler(&test_db).await;
     let (search_index, _dir) = fresh_search_index(&test_db.state().db_conn()).await;
     let repo = LivtetOpdsRepository::from_state(&test_db.state(), search_index);
-    let tmp = tempfile::tempdir().expect("tempdir");
+    let tmp = camino_tempfile::tempdir().expect("tempdir");
     let path = write_file(tmp.path(), "secret.epub", b"SECRET-CONTENT");
     let work_id = seed_work(&repo, "Authenticated Book").await;
     let edition_id = seed_edition(&repo, work_id).await;
@@ -577,7 +575,7 @@ async fn download_route_serves_file_with_valid_basic_auth() {
     let handler = make_handler(&test_db).await;
     let (search_index, _dir) = fresh_search_index(&test_db.state().db_conn()).await;
     let repo = LivtetOpdsRepository::from_state(&test_db.state(), search_index);
-    let tmp = tempfile::tempdir().expect("tempdir");
+    let tmp = camino_tempfile::tempdir().expect("tempdir");
     let path = write_file(tmp.path(), "open.epub", b"OPEN-CONTENT");
     let work_id = seed_work(&repo, "Open Book").await;
     let edition_id = seed_edition(&repo, work_id).await;

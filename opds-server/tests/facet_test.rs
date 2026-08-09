@@ -13,7 +13,6 @@
 
 use std::sync::Arc;
 
-use camino::Utf8Path;
 use livtet_core::{
     crud::work::CreateWorkInput,
     entities::{genres, tags},
@@ -26,13 +25,14 @@ use livtet_opds_server::{
 use livtet_search::SearchIndex;
 use livtet_types::DbId;
 use sea_orm::{ActiveModelTrait, ActiveValue::Set};
-use tempfile::TempDir;
 
 /// Build a fresh Tantivy `SearchIndex` in a temp directory and `reindex`
 /// it against the supplied database.
-async fn fresh_search_index(db: &sea_orm::DatabaseConnection) -> (Arc<SearchIndex>, TempDir) {
-    let dir = tempfile::tempdir().expect("tempdir");
-    let index = SearchIndex::open(Utf8Path::from_path(dir.path()).unwrap()).expect("open index");
+async fn fresh_search_index(
+    db: &sea_orm::DatabaseConnection,
+) -> (Arc<SearchIndex>, camino_tempfile::Utf8TempDir) {
+    let dir = camino_tempfile::tempdir().expect("tempdir");
+    let index = SearchIndex::open(dir.path()).expect("open index");
     index.reindex(db).await.expect("reindex");
     (Arc::new(index), dir)
 }

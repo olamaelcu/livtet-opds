@@ -9,7 +9,7 @@ independent = true
 
 [dependencies]
 itertools = "0.15"
-livtet-opds-types = { path = "../livtet-opds-types", features = ["specta"] }
+livtet-opds-types = { path = "../opds-types", features = ["specta"] }
 quick-xml = "0.41"
 serde = { workspace = true }
 serde_json = { workspace = true }
@@ -18,6 +18,7 @@ url = { workspace = true }
 
 [dev-dependencies]
 roxmltree = "0.21"
-livtet-test-utils = { path = "../livtet-test-utils" }
+livtet-test-utils = { workspace = true }
 mutants = { workspace = true }
-tempfile = { workspace = true }
+camino = { workspace = true }
+camino-tempfile = { workspace = true }

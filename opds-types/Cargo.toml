@@ -11,10 +11,10 @@ independent = true
 mutants = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-time = { workspace = true }
+time = { workspace = true, features = ["formatting", "parsing"] }
 url = { workspace = true }
 thiserror = { workspace = true }
-specta = { workspace = true, optional = true }
+specta = { workspace = true, optional = true, features = ["derive"] }
 specta-serde = { version = "0.0.12", optional = true }
 fake = { workspace = true, optional = true }
 
