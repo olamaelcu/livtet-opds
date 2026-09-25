@@ -11,10 +11,7 @@ independent = true
 itertools = "0.15"
 livtet-opds-types = { path = "../opds-types", features = ["specta"] }
 quick-xml = "0.41"
-serde = { workspace = true }
-serde_json = { workspace = true }
 time = { workspace = true }
-url = { workspace = true }
 
 [dev-dependencies]
 roxmltree = "0.21"

@@ -62,16 +62,18 @@ pub fn pick_renderer(accept: Option<&str>) -> Renderer {
 }
 
 fn matches_mime(media: &str, expected: &Mime) -> bool {
-    media.parse::<Mime>().ok().map_or(false, |m| {
-        m.type_() == expected.type_() && m.subtype() == expected.subtype()
-    })
+    media
+        .parse::<Mime>()
+        .ok()
+        .is_some_and(|m| m.type_() == expected.type_() && m.subtype() == expected.subtype())
 }
 
 fn is_xml(media: &str) -> bool {
     media == MIME_ATOM
-        || media.parse::<Mime>().ok().map_or(false, |m| {
-            m.type_() == "application" && m.subtype() == "xml"
-        })
+        || media
+            .parse::<Mime>()
+            .ok()
+            .is_some_and(|m| m.type_() == "application" && m.subtype() == "xml")
         || matches_mime(media, &TEXT_XML)
 }
 

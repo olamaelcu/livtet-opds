@@ -13,10 +13,9 @@
 
 use std::sync::Arc;
 
-use livtet_core::{
-    crud::work::CreateWorkInput,
+use livtet_core::data::{
+    Kind, TestDb,
     entities::{genres, tags},
-    test_db::TestDb,
 };
 use livtet_opds_server::{
     DefaultOpdsMapper, FacetAxis, FacetCount, FacetCounts, LivtetOpdsRepository, OpdsRepository,
@@ -25,6 +24,9 @@ use livtet_opds_server::{
 use livtet_search::SearchIndex;
 use livtet_types::DbId;
 use sea_orm::{ActiveModelTrait, ActiveValue::Set};
+
+mod common;
+use common::{CreateWorkInput, create_work};
 
 /// Build a fresh Tantivy `SearchIndex` in a temp directory and `reindex`
 /// it against the supplied database.
@@ -39,7 +41,7 @@ async fn fresh_search_index(
 
 #[tokio::test]
 async fn compute_facets_returns_empty_for_empty_catalog() {
-    let test_db = TestDb::new(None).await.expect("test db");
+    let test_db = TestDb::new(&[Kind::Business]).await.expect("test db");
     let (search_index, _dir) = fresh_search_index(&test_db.state().db_conn()).await;
     let repo = LivtetOpdsRepository::from_state(&test_db.state(), search_index);
 
@@ -59,7 +61,7 @@ async fn compute_facets_returns_empty_for_empty_catalog() {
 
 #[tokio::test]
 async fn compute_facets_aggregates_tag_and_genre_counts() {
-    let test_db = TestDb::new(None).await.expect("test db");
+    let test_db = TestDb::new(&[Kind::Business]).await.expect("test db");
     let (search_index, _dir) = fresh_search_index(&test_db.state().db_conn()).await;
     let repo = LivtetOpdsRepository::from_state(&test_db.state(), search_index);
 
@@ -126,7 +128,7 @@ async fn compute_facets_aggregates_tag_and_genre_counts() {
 
 #[tokio::test]
 async fn compute_facets_marks_active_value_for_each_axis() {
-    let test_db = TestDb::new(None).await.expect("test db");
+    let test_db = TestDb::new(&[Kind::Business]).await.expect("test db");
     let (search_index, _dir) = fresh_search_index(&test_db.state().db_conn()).await;
     let repo = LivtetOpdsRepository::from_state(&test_db.state(), search_index);
 
@@ -163,7 +165,7 @@ async fn compute_facets_marks_active_value_for_each_axis() {
 
 #[tokio::test]
 async fn compute_facets_scopes_to_active_filter() {
-    let test_db = TestDb::new(None).await.expect("test db");
+    let test_db = TestDb::new(&[Kind::Business]).await.expect("test db");
     let (search_index, _dir) = fresh_search_index(&test_db.state().db_conn()).await;
     let repo = LivtetOpdsRepository::from_state(&test_db.state(), search_index);
 
@@ -209,7 +211,7 @@ async fn compute_facets_scopes_to_active_filter() {
 
 #[tokio::test]
 async fn build_facets_emits_collection_per_axis_with_number_of_items() {
-    let test_db = TestDb::new(None).await.expect("test db");
+    let test_db = TestDb::new(&[Kind::Business]).await.expect("test db");
     let (search_index, _dir) = fresh_search_index(&test_db.state().db_conn()).await;
     let repo = LivtetOpdsRepository::from_state(&test_db.state(), search_index);
 
@@ -248,7 +250,7 @@ async fn build_facets_emits_collection_per_axis_with_number_of_items() {
 
 #[tokio::test]
 async fn build_facets_href_toggles_active_filter() {
-    let test_db = TestDb::new(None).await.expect("test db");
+    let test_db = TestDb::new(&[Kind::Business]).await.expect("test db");
     let (search_index, _dir) = fresh_search_index(&test_db.state().db_conn()).await;
     let repo = LivtetOpdsRepository::from_state(&test_db.state(), search_index);
 
@@ -327,7 +329,7 @@ async fn compute_facets_empty_axes_returns_empty_collections() {
 
 #[tokio::test]
 async fn compute_facets_respects_per_axis_subset() {
-    let test_db = TestDb::new(None).await.expect("test db");
+    let test_db = TestDb::new(&[Kind::Business]).await.expect("test db");
     let (search_index, _dir) = fresh_search_index(&test_db.state().db_conn()).await;
     let repo = LivtetOpdsRepository::from_state(&test_db.state(), search_index);
 
@@ -402,7 +404,7 @@ async fn seed_work(
     tag_ids: &[DbId],
     genre_ids: &[DbId],
 ) {
-    livtet_core::crud::work::create_work(
+    create_work(
         repo.db(),
         CreateWorkInput {
             title: title.into(),

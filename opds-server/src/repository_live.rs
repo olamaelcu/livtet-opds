@@ -34,8 +34,7 @@ use std::{collections::HashMap, str::FromStr, sync::Arc};
 use async_trait::async_trait;
 use livtet_core::{
     SharedState,
-    crud::{file_info::validate_and_prune_file_path, work},
-    entities::{
+    data::entities::{
         authors, authors::Entity as Authors, digital_inventory,
         digital_inventory::Entity as EditionsInventory, edition_authors,
         edition_authors::Entity as EditionAuthors, edition_identifiers,
@@ -55,8 +54,10 @@ use livtet_types::{
     DbId, SortDirection as CoreSortDirection, WorkFilters as CoreWorkFilters,
     WorkSortBy as CoreWorkSortBy,
 };
-use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, QueryOrder, QuerySelect};
-use ulid::DecodeError;
+use sea_orm::{
+    ActiveValue::Set, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, QueryOrder,
+    QuerySelect,
+};
 
 use crate::repository::{
     AuthorInfo, EditionAggregate, FacetAxis, FacetCount, FacetCounts, OpdsRepository, SeriesInfo,
@@ -131,7 +132,7 @@ impl OpdsRepository for LivtetOpdsRepository {
             let opts = SearchOptions {
                 collapse_to_works: true,
                 sort: Some(filter_query.build_sort()),
-                offset,
+                offset: offset as i64,
                 ..SearchOptions::default()
             };
 
@@ -210,7 +211,11 @@ impl OpdsRepository for LivtetOpdsRepository {
             return Ok(None);
         };
 
-        let Some(work) = work::get_work(&self.db, parsed).await.map_err(db_err)? else {
+        let Some(work) = Works::find_by_id(parsed)
+            .one(&self.db)
+            .await
+            .map_err(db_err)?
+        else {
             return Ok(None);
         };
 
@@ -391,7 +396,7 @@ impl OpdsRepository for LivtetOpdsRepository {
 /// filtering effect.
 fn work_query_to_filters(query: &WorkQuery) -> Result<CoreWorkFilters, OpdsError> {
     let parse_id = |s: &str| -> Result<DbId, OpdsError> {
-        DbId::from_str(s).map_err(|e: DecodeError| OpdsError::Database(e.to_string()))
+        DbId::from_str(s).map_err(|e| OpdsError::Database(e.to_string()))
     };
 
     let tag_ids: Vec<DbId> = query
@@ -471,6 +476,7 @@ fn work_query_to_filters(query: &WorkQuery) -> Result<CoreWorkFilters, OpdsError
         sort_by,
         sort_direction,
         limit: None,
+        has_file: None,
     })
 }
 
@@ -1307,7 +1313,7 @@ async fn assemble_works(
         // in that case rather than handing out a stale link.
         let inventory_id = inventory.map(|i| i.id.to_string());
         let file_path = inventory.and_then(|i| i.file_path.clone());
-        let file_mime_type = file_path.as_deref().and_then(|p| mime_guess_from_path(p));
+        let file_mime_type = file_path.as_deref().and_then(mime_guess_from_path);
 
         let aggregate = EditionAggregate {
             id: ed.id.to_string(),
@@ -1374,6 +1380,31 @@ async fn assemble_works(
 // ---------------------------------------------------------------------------
 // helpers
 // ---------------------------------------------------------------------------
+
+/// Confirm that `file_path` still exists on disk. A missing file — including a
+/// dangling symlink — means the linked edition is unusable: the inventory row's
+/// `file_path` is nulled so later reads observe an absent file, and `None` is
+/// returned so the caller can surface a 404.
+#[allow(clippy::disallowed_types, clippy::disallowed_methods)]
+async fn validate_and_prune_file_path(
+    db: &DatabaseConnection,
+    inventory_id: DbId,
+    file_path: &str,
+) -> Option<String> {
+    if std::path::Path::new(file_path).exists() {
+        return Some(file_path.to_string());
+    }
+
+    let _ = EditionsInventory::update(digital_inventory::ActiveModel {
+        id: Set(inventory_id),
+        file_path: Set(None),
+        ..Default::default()
+    })
+    .exec(db)
+    .await;
+
+    None
+}
 
 fn db_err(e: sea_orm::DbErr) -> OpdsError {
     OpdsError::Database(e.to_string())

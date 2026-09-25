@@ -32,25 +32,29 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use livtet_core::{
-    crud::work::CreateWorkInput,
+use livtet_core::data::{
+    Kind, TestDb,
     entities::{digital_inventory, editions},
-    now_primitive,
-    test_db::TestDb,
 };
 use livtet_opds_server::{
     DefaultOpdsMapper, LivtetOpdsRepository, OpdsHandler, OpdsRepository, OpdsService,
     SharedOpdsHandler, SharedOpdsRepository,
 };
 use livtet_opds_types::{Feed, OpdsError, Publication};
-use livtet_types::DbId;
+use livtet_types::{DbId, now_primitive};
 use sea_orm::{ActiveModelTrait, ActiveValue::Set, EntityTrait};
+
+mod common;
+use common::{CreateWorkInput, create_work};
 
 /// Build a fresh Tantivy `SearchIndex` in a temp directory and `reindex`
 /// it against the supplied database.
 async fn fresh_search_index(
     db: &sea_orm::DatabaseConnection,
-) -> (Arc<livtet_search::SearchIndex>, camino_tempfile::Utf8TempDir) {
+) -> (
+    Arc<livtet_search::SearchIndex>,
+    camino_tempfile::Utf8TempDir,
+) {
     let dir = camino_tempfile::tempdir().expect("tempdir");
     let index = livtet_search::SearchIndex::open(dir.path()).expect("open index");
     index.reindex(db).await.expect("reindex");
@@ -122,7 +126,7 @@ fn write_file(dir: &camino::Utf8Path, name: &str, bytes: &[u8]) -> camino::Utf8P
 
 /// Insert a work with the given title.
 async fn seed_work(repo: &LivtetOpdsRepository, title: &str) -> DbId {
-    livtet_core::crud::work::create_work(
+    create_work(
         repo.db(),
         CreateWorkInput {
             title: title.into(),
@@ -182,14 +186,14 @@ async fn seed_inventory(repo: &LivtetOpdsRepository, edition_id: DbId, file_path
 
 #[tokio::test]
 async fn get_linked_file_returns_bytes_for_valid_file() {
-    let test_db = TestDb::new(None).await.expect("test db");
+    let test_db = TestDb::new(&[Kind::Business]).await.expect("test db");
     let (index, _dir) = fresh_search_index(&test_db.state().db_conn()).await;
     let repo = LivtetOpdsRepository::from_state(&test_db.state(), index);
     let tmp = camino_tempfile::tempdir().expect("tempdir");
     let path = write_file(tmp.path(), "book.epub", b"epub-content");
     let work_id = seed_work(&repo, "Linked Book").await;
     let edition_id = seed_edition(&repo, work_id).await;
-    let inv_id = seed_inventory(&repo, edition_id, path.to_str().unwrap()).await;
+    let inv_id = seed_inventory(&repo, edition_id, path.as_str()).await;
 
     let (bytes, mime_type, filename) = repo
         .get_linked_file(&work_id.to_string(), None)
@@ -204,7 +208,7 @@ async fn get_linked_file_returns_bytes_for_valid_file() {
 
 #[tokio::test]
 async fn get_linked_file_picks_specific_inventory_when_requested() {
-    let test_db = TestDb::new(None).await.expect("test db");
+    let test_db = TestDb::new(&[Kind::Business]).await.expect("test db");
     let (search_index, _dir) = fresh_search_index(&test_db.state().db_conn()).await;
     let repo = LivtetOpdsRepository::from_state(&test_db.state(), search_index);
     let tmp = camino_tempfile::tempdir().expect("tempdir");
@@ -213,8 +217,8 @@ async fn get_linked_file_picks_specific_inventory_when_requested() {
     let work_id = seed_work(&repo, "Two Format Book").await;
     let epub_edition = seed_edition(&repo, work_id).await;
     let pdf_edition = seed_edition(&repo, work_id).await;
-    let _ = seed_inventory(&repo, epub_edition, epub_path.to_str().unwrap()).await;
-    let pdf_inv = seed_inventory(&repo, pdf_edition, pdf_path.to_str().unwrap()).await;
+    let _ = seed_inventory(&repo, epub_edition, epub_path.as_str()).await;
+    let pdf_inv = seed_inventory(&repo, pdf_edition, pdf_path.as_str()).await;
 
     let (bytes, mime_type, _filename) = repo
         .get_linked_file(&work_id.to_string(), Some(&pdf_inv.to_string()))
@@ -227,7 +231,7 @@ async fn get_linked_file_picks_specific_inventory_when_requested() {
 
 #[tokio::test]
 async fn get_linked_file_returns_missing_field_when_no_file_linked() {
-    let test_db = TestDb::new(None).await.expect("test db");
+    let test_db = TestDb::new(&[Kind::Business]).await.expect("test db");
     let (search_index, _dir) = fresh_search_index(&test_db.state().db_conn()).await;
     let repo = LivtetOpdsRepository::from_state(&test_db.state(), search_index);
     let work_id = seed_work(&repo, "Unlinked Book").await;
@@ -241,14 +245,14 @@ async fn get_linked_file_returns_missing_field_when_no_file_linked() {
 
 #[tokio::test]
 async fn get_linked_file_returns_missing_field_for_invalid_inventory_id() {
-    let test_db = TestDb::new(None).await.expect("test db");
+    let test_db = TestDb::new(&[Kind::Business]).await.expect("test db");
     let (search_index, _dir) = fresh_search_index(&test_db.state().db_conn()).await;
     let repo = LivtetOpdsRepository::from_state(&test_db.state(), search_index);
     let tmp = camino_tempfile::tempdir().expect("tempdir");
     let path = write_file(tmp.path(), "book.epub", b"x");
     let work_id = seed_work(&repo, "Linked").await;
     let edition_id = seed_edition(&repo, work_id).await;
-    let _ = seed_inventory(&repo, edition_id, path.to_str().unwrap()).await;
+    let _ = seed_inventory(&repo, edition_id, path.as_str()).await;
 
     let bogus_inv = DbId::new();
     let err = repo
@@ -260,7 +264,7 @@ async fn get_linked_file_returns_missing_field_for_invalid_inventory_id() {
 
 #[tokio::test]
 async fn get_linked_file_returns_missing_field_for_garbage_work_id() {
-    let test_db = TestDb::new(None).await.expect("test db");
+    let test_db = TestDb::new(&[Kind::Business]).await.expect("test db");
     let (search_index, _dir) = fresh_search_index(&test_db.state().db_conn()).await;
     let repo = LivtetOpdsRepository::from_state(&test_db.state(), search_index);
     let err = repo
@@ -272,7 +276,7 @@ async fn get_linked_file_returns_missing_field_for_garbage_work_id() {
 
 #[tokio::test]
 async fn get_linked_file_returns_missing_field_for_missing_work() {
-    let test_db = TestDb::new(None).await.expect("test db");
+    let test_db = TestDb::new(&[Kind::Business]).await.expect("test db");
     let (search_index, _dir) = fresh_search_index(&test_db.state().db_conn()).await;
     let repo = LivtetOpdsRepository::from_state(&test_db.state(), search_index);
     let missing = DbId::new();
@@ -286,7 +290,7 @@ async fn get_linked_file_returns_missing_field_for_missing_work() {
 #[tokio::test]
 #[cfg(unix)]
 async fn get_linked_file_returns_missing_field_for_broken_symlink_and_prunes() {
-    let test_db = TestDb::new(None).await.expect("test db");
+    let test_db = TestDb::new(&[Kind::Business]).await.expect("test db");
     let (search_index, _dir) = fresh_search_index(&test_db.state().db_conn()).await;
     let repo = LivtetOpdsRepository::from_state(&test_db.state(), search_index);
     let tmp = camino_tempfile::tempdir().expect("tempdir");
@@ -295,7 +299,7 @@ async fn get_linked_file_returns_missing_field_for_broken_symlink_and_prunes() {
     std::fs::create_dir_all(&linked_dir).expect("mkdir");
     let linked = linked_dir.join("01HABCDEFGHJKMNPQRSTVWXYZ.epub");
     std::os::unix::fs::symlink(&src, &linked).expect("symlink");
-    let linked_str = linked.to_str().unwrap().to_string();
+    let linked_str = linked.as_str().to_string();
 
     let work_id = seed_work(&repo, "Broken Link").await;
     let edition_id = seed_edition(&repo, work_id).await;
@@ -329,7 +333,7 @@ async fn get_linked_file_returns_missing_field_for_broken_symlink_and_prunes() {
 
 #[tokio::test]
 async fn download_route_serves_file_with_correct_headers() {
-    let test_db = TestDb::new(None).await.expect("test db");
+    let test_db = TestDb::new(&[Kind::Business]).await.expect("test db");
     let handler = make_handler(&test_db).await;
     let (search_index, _dir) = fresh_search_index(&test_db.state().db_conn()).await;
     let repo = LivtetOpdsRepository::from_state(&test_db.state(), search_index);
@@ -337,7 +341,7 @@ async fn download_route_serves_file_with_correct_headers() {
     let path = write_file(tmp.path(), "pride.epub", b"PRIDE-AND-PREJUDICE");
     let work_id = seed_work(&repo, "Pride and Prejudice").await;
     let edition_id = seed_edition(&repo, work_id).await;
-    let inv_id = seed_inventory(&repo, edition_id, path.to_str().unwrap()).await;
+    let inv_id = seed_inventory(&repo, edition_id, path.as_str()).await;
 
     let app = make_app(handler);
     let cli = poem::test::TestClient::new(app);
@@ -374,7 +378,7 @@ async fn download_route_serves_file_with_correct_headers() {
 
 #[tokio::test]
 async fn download_route_serves_first_file_when_inventory_id_omitted() {
-    let test_db = TestDb::new(None).await.expect("test db");
+    let test_db = TestDb::new(&[Kind::Business]).await.expect("test db");
     let handler = make_handler(&test_db).await;
     let (search_index, _dir) = fresh_search_index(&test_db.state().db_conn()).await;
     let repo = LivtetOpdsRepository::from_state(&test_db.state(), search_index);
@@ -382,7 +386,7 @@ async fn download_route_serves_first_file_when_inventory_id_omitted() {
     let path = write_file(tmp.path(), "default.epub", b"DEFAULT-FILE");
     let work_id = seed_work(&repo, "Default Pick").await;
     let edition_id = seed_edition(&repo, work_id).await;
-    let _ = seed_inventory(&repo, edition_id, path.to_str().unwrap()).await;
+    let _ = seed_inventory(&repo, edition_id, path.as_str()).await;
 
     let app = make_app(handler);
     let cli = poem::test::TestClient::new(app);
@@ -396,7 +400,7 @@ async fn download_route_serves_first_file_when_inventory_id_omitted() {
 
 #[tokio::test]
 async fn download_route_returns_404_when_no_file_linked() {
-    let test_db = TestDb::new(None).await.expect("test db");
+    let test_db = TestDb::new(&[Kind::Business]).await.expect("test db");
     let handler = make_handler(&test_db).await;
     let (search_index, _dir) = fresh_search_index(&test_db.state().db_conn()).await;
     let repo = LivtetOpdsRepository::from_state(&test_db.state(), search_index);
@@ -416,14 +420,14 @@ async fn download_route_returns_404_when_no_file_linked() {
 
 #[tokio::test]
 async fn mapper_emits_acquisition_link_for_edition_with_linked_file() {
-    let test_db = TestDb::new(None).await.expect("test db");
+    let test_db = TestDb::new(&[Kind::Business]).await.expect("test db");
     let (search_index, _dir) = fresh_search_index(&test_db.state().db_conn()).await;
     let repo = LivtetOpdsRepository::from_state(&test_db.state(), search_index);
     let tmp = camino_tempfile::tempdir().expect("tempdir");
     let path = write_file(tmp.path(), "downloadable.epub", b"epub");
     let work_id = seed_work(&repo, "Acquirable").await;
     let edition_id = seed_edition(&repo, work_id).await;
-    let inv_id = seed_inventory(&repo, edition_id, path.to_str().unwrap()).await;
+    let inv_id = seed_inventory(&repo, edition_id, path.as_str()).await;
 
     let agg = repo
         .get_work(&work_id.to_string())
@@ -467,7 +471,7 @@ async fn mapper_emits_acquisition_link_for_edition_with_linked_file() {
 
 #[tokio::test]
 async fn mapper_omits_acquisition_link_when_no_file_linked() {
-    let test_db = TestDb::new(None).await.expect("test db");
+    let test_db = TestDb::new(&[Kind::Business]).await.expect("test db");
     let (search_index, _dir) = fresh_search_index(&test_db.state().db_conn()).await;
     let repo = LivtetOpdsRepository::from_state(&test_db.state(), search_index);
     let work_id = seed_work(&repo, "Unlinked").await;
@@ -522,7 +526,7 @@ fn make_app_with_auth(
         Argon2,
         password_hash::{PasswordHasher, SaltString},
     };
-    use rand::{Rng, RngExt, SeedableRng};
+    use rand::{RngExt, SeedableRng};
     let seed = [0u8; 32];
     let mut rng = rand::rngs::StdRng::from_seed(seed);
     let mut salt_bytes = [0u8; 22];
@@ -544,7 +548,7 @@ fn make_app_with_auth(
 
 #[tokio::test]
 async fn download_route_rejects_unauthenticated_requests_with_401() {
-    let test_db = TestDb::new(None).await.expect("test db");
+    let test_db = TestDb::new(&[Kind::Business]).await.expect("test db");
     let handler = make_handler(&test_db).await;
     let (search_index, _dir) = fresh_search_index(&test_db.state().db_conn()).await;
     let repo = LivtetOpdsRepository::from_state(&test_db.state(), search_index);
@@ -552,7 +556,7 @@ async fn download_route_rejects_unauthenticated_requests_with_401() {
     let path = write_file(tmp.path(), "secret.epub", b"SECRET-CONTENT");
     let work_id = seed_work(&repo, "Authenticated Book").await;
     let edition_id = seed_edition(&repo, work_id).await;
-    let inv_id = seed_inventory(&repo, edition_id, path.to_str().unwrap()).await;
+    let inv_id = seed_inventory(&repo, edition_id, path.as_str()).await;
 
     let app = make_app_with_auth(handler, "alice", "hunter2");
     let cli = poem::test::TestClient::new(app);
@@ -571,7 +575,7 @@ async fn download_route_rejects_unauthenticated_requests_with_401() {
 
 #[tokio::test]
 async fn download_route_serves_file_with_valid_basic_auth() {
-    let test_db = TestDb::new(None).await.expect("test db");
+    let test_db = TestDb::new(&[Kind::Business]).await.expect("test db");
     let handler = make_handler(&test_db).await;
     let (search_index, _dir) = fresh_search_index(&test_db.state().db_conn()).await;
     let repo = LivtetOpdsRepository::from_state(&test_db.state(), search_index);
@@ -579,7 +583,7 @@ async fn download_route_serves_file_with_valid_basic_auth() {
     let path = write_file(tmp.path(), "open.epub", b"OPEN-CONTENT");
     let work_id = seed_work(&repo, "Open Book").await;
     let edition_id = seed_edition(&repo, work_id).await;
-    let inv_id = seed_inventory(&repo, edition_id, path.to_str().unwrap()).await;
+    let inv_id = seed_inventory(&repo, edition_id, path.as_str()).await;
 
     let app = make_app_with_auth(handler, "alice", "hunter2");
     let cli = poem::test::TestClient::new(app);

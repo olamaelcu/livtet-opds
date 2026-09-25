@@ -1,10 +1,10 @@
 use std::{collections::HashMap, sync::Arc};
 
 use camino::{Utf8Path, Utf8PathBuf};
+use camino_tempfile::NamedUtf8TempFile;
 use fs_err as fs;
 use futures::StreamExt;
 use serde::{Deserialize, Serialize};
-use camino_tempfile::NamedUtf8TempFile;
 use thiserror::Error;
 use time::OffsetDateTime;
 use tokio::{io::AsyncWriteExt, sync::RwLock};
@@ -237,18 +237,35 @@ async fn download_task(
     ctx: DownloadTaskCtx,
 ) {
     let builder = ctx.http.get(&url);
-    let response = match ctx.auth.apply(builder).send().await {
-        Ok(r) => r,
-        Err(e) => {
+    // Race the initial request against cancellation: a cancel issued while the
+    // server is still sending headers must win, otherwise the download runs to
+    // completion and reports `Complete` despite being cancelled.
+    let response = tokio::select! {
+        biased;
+        _ = &mut *cancel_rx => {
             set_status_and_persist(
                 &ctx.downloads,
                 &ctx.store_path,
                 &ctx.download_id,
-                DownloadStatus::Failed(e.to_string()),
+                DownloadStatus::Cancelled,
             )
             .await;
+            let _ = fs::tokio::remove_file(&dest_path).await;
             return;
         }
+        response = ctx.auth.apply(builder).send() => match response {
+            Ok(r) => r,
+            Err(e) => {
+                set_status_and_persist(
+                    &ctx.downloads,
+                    &ctx.store_path,
+                    &ctx.download_id,
+                    DownloadStatus::Failed(e.to_string()),
+                )
+                .await;
+                return;
+            }
+        },
     };
 
     let total_bytes = response.content_length().unwrap_or(0);
@@ -272,6 +289,18 @@ async fn download_task(
 
     loop {
         tokio::select! {
+            biased;
+            _ = &mut *cancel_rx => {
+                set_status_and_persist(
+                    &ctx.downloads,
+                    &ctx.store_path,
+                    &ctx.download_id,
+                    DownloadStatus::Cancelled,
+                )
+                .await;
+                let _ = fs::tokio::remove_file(&dest_path).await;
+                return;
+            }
             chunk = stream.next() => {
                 match chunk {
                     Some(Ok(bytes)) => {
@@ -318,17 +347,6 @@ async fn download_task(
                         return;
                     }
                 }
-            }
-            _ = &mut *cancel_rx => {
-                set_status_and_persist(
-                    &ctx.downloads,
-                    &ctx.store_path,
-                    &ctx.download_id,
-                    DownloadStatus::Cancelled,
-                )
-                .await;
-                let _ = fs::tokio::remove_file(&dest_path).await;
-                return;
             }
         }
     }

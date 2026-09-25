@@ -1,0 +1,3 @@
+[submodule "vendor/opds-test-catalog"]
+	path = vendor/opds-test-catalog
+	url = https://github.com/Feedbooks/opds-test-catalog

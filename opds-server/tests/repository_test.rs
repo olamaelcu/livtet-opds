@@ -6,18 +6,19 @@
 
 use std::sync::Arc;
 
-use livtet_core::{
-    crud::work::CreateWorkInput,
+use livtet_core::data::{
+    Kind, TestDb,
     entities::{
         authors, digital_inventory, digital_inventory::Entity as EditionsInventory, editions,
     },
-    now_primitive,
-    test_db::TestDb,
 };
 use livtet_opds_server::{LivtetOpdsRepository, OpdsRepository, WorkQuery};
 use livtet_search::SearchIndex;
-use livtet_types::{DbId, KnownGenres};
+use livtet_types::{DbId, KnownGenres, now_primitive};
 use sea_orm::{ActiveModelTrait, ActiveValue::Set, EntityTrait};
+
+mod common;
+use common::{CreateWorkInput, create_work};
 
 /// Build a fresh Tantivy `SearchIndex` in a temp directory and `reindex`
 /// it against the supplied database. The `Utf8TempDir` is returned so the
@@ -42,14 +43,14 @@ async fn fresh_search_index(
 
 #[tokio::test]
 async fn list_works_returns_seeded_work_as_aggregate() {
-    let test_db = TestDb::new(None).await.expect("test db");
+    let test_db = TestDb::new(&[Kind::Business]).await.expect("test db");
     let (search_index, _dir) = fresh_search_index(&test_db.state().db_conn()).await;
     let repo = LivtetOpdsRepository::from_state(&test_db.state(), search_index);
 
     // Seed a tag, a work, and an author binding using the public CRUD path.
     let tag_id = seed_tag(&test_db, "favorite").await;
     let author_id = seed_author(&test_db, "Octavia Butler").await;
-    let work = livtet_core::crud::work::create_work(
+    let work = create_work(
         repo.db(),
         CreateWorkInput {
             title: "Kindred".into(),
@@ -101,12 +102,12 @@ async fn list_works_returns_seeded_work_as_aggregate() {
 
 #[tokio::test]
 async fn count_works_matches_list_size() {
-    let test_db = TestDb::new(None).await.expect("test db");
+    let test_db = TestDb::new(&[Kind::Business]).await.expect("test db");
     let (search_index, _dir) = fresh_search_index(&test_db.state().db_conn()).await;
     let repo = LivtetOpdsRepository::from_state(&test_db.state(), search_index);
 
     for title in ["Alpha", "Bravo", "Charlie"] {
-        let work = livtet_core::crud::work::create_work(
+        let work = create_work(
             repo.db(),
             CreateWorkInput {
                 title: title.into(),
@@ -152,7 +153,7 @@ async fn count_works_matches_list_size() {
 
 #[tokio::test]
 async fn get_work_returns_none_for_missing_id() {
-    let test_db = TestDb::new(None).await.expect("test db");
+    let test_db = TestDb::new(&[Kind::Business]).await.expect("test db");
     let (search_index, _dir) = fresh_search_index(&test_db.state().db_conn()).await;
     let repo = LivtetOpdsRepository::from_state(&test_db.state(), search_index);
 
@@ -167,7 +168,7 @@ async fn get_work_returns_none_for_missing_id() {
 
 #[tokio::test]
 async fn get_work_returns_none_for_garbage_id() {
-    let test_db = TestDb::new(None).await.expect("test db");
+    let test_db = TestDb::new(&[Kind::Business]).await.expect("test db");
     let (search_index, _dir) = fresh_search_index(&test_db.state().db_conn()).await;
     let repo = LivtetOpdsRepository::from_state(&test_db.state(), search_index);
 
@@ -179,11 +180,11 @@ async fn get_work_returns_none_for_garbage_id() {
 
 #[tokio::test]
 async fn get_work_round_trip() {
-    let test_db = TestDb::new(None).await.expect("test db");
+    let test_db = TestDb::new(&[Kind::Business]).await.expect("test db");
     let (search_index, _dir) = fresh_search_index(&test_db.state().db_conn()).await;
     let repo = LivtetOpdsRepository::from_state(&test_db.state(), search_index);
 
-    let created = livtet_core::crud::work::create_work(
+    let created = create_work(
         repo.db(),
         CreateWorkInput {
             title: "Parable of the Sower".into(),
@@ -210,7 +211,7 @@ async fn get_work_round_trip() {
 
 #[tokio::test]
 async fn list_authors_returns_sorted() {
-    let test_db = TestDb::new(None).await.expect("test db");
+    let test_db = TestDb::new(&[Kind::Business]).await.expect("test db");
     let (search_index, _dir) = fresh_search_index(&test_db.state().db_conn()).await;
     let repo = LivtetOpdsRepository::from_state(&test_db.state(), search_index);
 
@@ -230,7 +231,7 @@ async fn list_authors_returns_sorted() {
 
 #[tokio::test]
 async fn list_genres_and_tags_round_trip() {
-    let test_db = TestDb::new(None).await.expect("test db");
+    let test_db = TestDb::new(&[Kind::Business]).await.expect("test db");
     let (search_index, _dir) = fresh_search_index(&test_db.state().db_conn()).await;
     let repo = LivtetOpdsRepository::from_state(&test_db.state(), search_index);
 
@@ -253,11 +254,11 @@ async fn list_genres_and_tags_round_trip() {
 
 #[tokio::test]
 async fn inventory_paths_surface_on_edition_aggregate() {
-    let test_db = TestDb::new(None).await.expect("test db");
+    let test_db = TestDb::new(&[Kind::Business]).await.expect("test db");
     let (search_index, _dir) = fresh_search_index(&test_db.state().db_conn()).await;
     let repo = LivtetOpdsRepository::from_state(&test_db.state(), search_index);
 
-    let created = livtet_core::crud::work::create_work(
+    let created = create_work(
         repo.db(),
         CreateWorkInput {
             title: "Piranesi".into(),
@@ -334,7 +335,7 @@ async fn seed_author(test_db: &TestDb, name: &str) -> DbId {
 }
 
 async fn seed_genre(test_db: &TestDb, name: &str) -> DbId {
-    use livtet_core::entities::genres;
+    use livtet_core::data::entities::genres;
     use sea_orm::ActiveModelTrait;
     let db = test_db.state().db_conn();
     let id = DbId::new();
@@ -351,7 +352,7 @@ async fn seed_genre(test_db: &TestDb, name: &str) -> DbId {
 }
 
 async fn seed_tag(test_db: &TestDb, name: &str) -> DbId {
-    use livtet_core::entities::tags;
+    use livtet_core::data::entities::tags;
     use sea_orm::ActiveModelTrait;
     let db = test_db.state().db_conn();
     let id = DbId::new();
