@@ -3,6 +3,7 @@ pub mod error;
 pub mod feed;
 pub mod link;
 pub mod publication;
+mod serde_util;
 
 pub use auth::{AuthenticationDocument, AuthenticationMethod};
 pub use error::OpdsError;

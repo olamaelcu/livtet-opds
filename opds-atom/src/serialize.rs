@@ -102,8 +102,8 @@ pub fn render_feed(feed: &Feed, kind: FeedKind) -> Result<String, OpdsError> {
     // Entries.
     match kind {
         FeedKind::Navigation => {
-            for collection in &feed.navigation {
-                write_navigation_entry(&mut writer, collection)?;
+            for link in &feed.navigation {
+                write_navigation_link(&mut writer, link)?;
             }
             for collection in &feed.groups {
                 write_navigation_entry(&mut writer, collection)?;
@@ -262,6 +262,27 @@ fn write_facet_group<W: std::io::Write>(
     Ok(())
 }
 
+/// Write a compact navigation link as an Atom `<entry>`: the OPDS 1.x
+/// equivalent of an OPDS 2.0 navigation Link Object.
+fn write_navigation_link<W: std::io::Write>(
+    writer: &mut Writer<W>,
+    link: &Link,
+) -> Result<(), OpdsError> {
+    writer
+        .write_event(Event::Start(BytesStart::new("entry")))
+        .map_err(xml_err)?;
+
+    write_text_element(writer, "id", &link.href)?;
+    write_text_element(writer, "title", link.title.as_deref().unwrap_or(&link.href))?;
+    write_text_element(writer, "updated", &format_date(OffsetDateTime::now_utc()))?;
+    write_feed_link(writer, link)?;
+
+    writer
+        .write_event(Event::End(BytesEnd::new("entry")))
+        .map_err(xml_err)?;
+    Ok(())
+}
+
 fn write_navigation_entry<W: std::io::Write>(
     writer: &mut Writer<W>,
     collection: &livtet_opds_types::Collection,
@@ -327,7 +348,11 @@ fn write_publication_entry_body<W: std::io::Write>(
         meta.identifier.as_deref().unwrap_or("urn:uuid:missing"),
     )?;
     write_text_element(writer, "title", &meta.title)?;
-    write_text_element(writer, "updated", &format_date(meta.modified))?;
+    write_text_element(
+        writer,
+        "updated",
+        &format_date(meta.modified.unwrap_or_else(OffsetDateTime::now_utc)),
+    )?;
 
     if let Some(dt) = meta.published {
         write_text_element(writer, "published", &format_date(dt))?;

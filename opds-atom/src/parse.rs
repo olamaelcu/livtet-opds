@@ -401,8 +401,8 @@ impl<'a> Parser<'a> {
                             if let Some(entry) = current_entry.take() {
                                 if entry.is_publication() {
                                     feed.publications.push(entry.into_publication());
-                                } else if entry.is_navigation_collection() {
-                                    feed.navigation.push(entry.into_collection());
+                                } else if let Some(link) = entry.into_navigation_link() {
+                                    feed.navigation.push(link);
                                 }
                             }
                         }
@@ -555,10 +555,6 @@ impl PartialPublication {
             })
     }
 
-    fn is_navigation_collection(&self) -> bool {
-        !self.is_publication()
-    }
-
     fn into_publication(self) -> Publication {
         Publication {
             metadata: PublicationMetadata {
@@ -567,7 +563,7 @@ impl PartialPublication {
                 description: self.description,
                 language: self.language,
                 publisher: None,
-                modified: self.modified.unwrap_or_else(OffsetDateTime::now_utc),
+                modified: self.modified,
                 published: self.published,
                 authors: self.authors,
                 subjects: self.subjects,
@@ -582,20 +578,18 @@ impl PartialPublication {
         }
     }
 
-    fn into_collection(self) -> Collection {
-        Collection {
-            metadata: Metadata {
-                title: self.title,
-                identifier: self.identifier,
-                type_: None,
-                description: self.description,
-                modified: Some(self.modified.unwrap_or_else(OffsetDateTime::now_utc)),
-                number_of_items: None,
-                items_per_page: None,
-                current_page: None,
-            },
-            links: self.links.clone(),
-        }
+    /// Convert a navigation `<entry>` into a compact navigation link. OPDS 1.x
+    /// navigation entries wrap a single subsection link; the entry title names
+    /// the target. Entries with no link have nothing to point at and are
+    /// dropped.
+    fn into_navigation_link(self) -> Option<Link> {
+        let title = (!self.title.is_empty()).then_some(self.title);
+        self.links.into_iter().next().map(|mut link| {
+            if link.title.is_none() {
+                link.title = title;
+            }
+            link
+        })
     }
 }
 

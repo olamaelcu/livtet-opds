@@ -18,7 +18,6 @@ url = { workspace = true }
 
 [dev-dependencies]
 roxmltree = "0.21"
-livtet-test-utils = { workspace = true }
 mutants = { workspace = true }
 camino = { workspace = true }
 camino-tempfile = { workspace = true }

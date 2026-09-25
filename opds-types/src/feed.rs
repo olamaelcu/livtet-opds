@@ -59,8 +59,10 @@ pub struct Feed {
     pub metadata: Metadata,
     pub links: Vec<Link>,
 
+    /// Compact navigation collection: an array of Link Objects, per OPDS 2.0
+    /// §2.1. Each link points at a sub-feed the user can drill into.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub navigation: Vec<Collection>,
+    pub navigation: Vec<Link>,
 
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub publications: Vec<Publication>,

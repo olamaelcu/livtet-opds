@@ -95,7 +95,7 @@ impl DefaultOpdsMapper {
                 description: work.description.clone(),
                 language: work.editions.first().and_then(|e| e.language.clone()),
                 publisher: work.publishers.first().cloned(),
-                modified: OffsetDateTime::now_utc(),
+                modified: Some(OffsetDateTime::now_utc()),
                 published: None,
                 authors,
                 subjects: Vec::new(),
@@ -117,7 +117,7 @@ impl DefaultOpdsMapper {
     pub fn navigation_feed(&self, title: &str, items: Vec<(String, String)>) -> Feed {
         let mut feed = Feed::new(title);
         for (label, href) in items {
-            feed.links.push(Link {
+            feed.navigation.push(Link {
                 href: format!("{}{href}", self.base_url),
                 type_: "application/opds+json".to_string(),
                 templated: false,
@@ -243,9 +243,9 @@ impl DefaultOpdsMapper {
                 length: None,
                 properties: None,
             }],
-            navigation: collections,
+            navigation: Vec::new(),
             publications,
-            facets: vec![],
+            facets: collections,
             groups: vec![],
         }
     }

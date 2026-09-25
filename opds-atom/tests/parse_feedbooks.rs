@@ -19,8 +19,8 @@ fn parse_feedbooks_root() {
     assert!(
         feed.navigation
             .iter()
-            .any(|c| c.metadata.title == "First Acquisition feed"),
-        "expected navigation collection"
+            .any(|l| l.title.as_deref() == Some("First Acquisition feed")),
+        "expected navigation link"
     );
 }
 

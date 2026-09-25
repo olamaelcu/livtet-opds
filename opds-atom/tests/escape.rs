@@ -31,7 +31,7 @@ fn text_is_escaped_and_round_trips_unescaped() {
                 description: Some("Line 1\nLine 2".to_string()),
                 language: None,
                 publisher: None,
-                modified: time::OffsetDateTime::now_utc(),
+                modified: Some(time::OffsetDateTime::now_utc()),
                 published: None,
                 authors: Vec::new(),
                 subjects: Vec::new(),

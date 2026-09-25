@@ -1,7 +1,7 @@
 use livtet_opds_atom::{FeedKind, parse_feed, render_feed};
 use livtet_opds_types::{
-    Acquisition, Author, Availability, Collection, Feed, Link, Metadata, Price, Properties,
-    Publication, PublicationMetadata,
+    Acquisition, Author, Availability, Feed, Link, Metadata, Price, Properties, Publication,
+    PublicationMetadata,
 };
 
 fn sample_feed() -> Feed {
@@ -27,27 +27,15 @@ fn sample_feed() -> Feed {
             properties: None,
         }],
         publications: Vec::new(),
-        navigation: vec![Collection {
-            metadata: Metadata {
-                title: "Subsection".to_string(),
-                identifier: Some("urn:subsection".to_string()),
-                type_: None,
-                description: None,
-                modified: Some(time::OffsetDateTime::now_utc()),
-                number_of_items: None,
-                items_per_page: None,
-                current_page: None,
-            },
-            links: vec![Link {
-                href: "http://example.com/sub".to_string(),
-                type_: "application/atom+xml;profile=opds-catalog;kind=acquisition".to_string(),
-                templated: false,
-                rel: vec!["subsection".to_string()],
-                title: Some("Sub".to_string()),
-                hreflang: None,
-                length: None,
-                properties: None,
-            }],
+        navigation: vec![Link {
+            href: "http://example.com/sub".to_string(),
+            type_: "application/atom+xml;profile=opds-catalog;kind=acquisition".to_string(),
+            templated: false,
+            rel: vec!["subsection".to_string()],
+            title: Some("Subsection".to_string()),
+            hreflang: None,
+            length: None,
+            properties: None,
         }],
         groups: Vec::new(),
         facets: Vec::new(),
@@ -95,7 +83,7 @@ fn full_feed() -> Feed {
                 description: Some("A great book".to_string()),
                 language: Some("en".to_string()),
                 publisher: Some("Publisher Inc".to_string()),
-                modified: time::OffsetDateTime::now_utc(),
+                modified: Some(time::OffsetDateTime::now_utc()),
                 published: Some(time::OffsetDateTime::now_utc()),
                 authors: vec![Author {
                     name: "Author One".to_string(),
@@ -163,7 +151,13 @@ fn navigation_feed_round_trip() {
         parsed
             .navigation
             .iter()
-            .any(|c| c.metadata.title == "Subsection")
+            .any(|l| l.title.as_deref() == Some("Subsection"))
+    );
+    assert!(
+        parsed
+            .navigation
+            .iter()
+            .any(|l| l.href == "http://example.com/sub")
     );
     assert!(
         parsed

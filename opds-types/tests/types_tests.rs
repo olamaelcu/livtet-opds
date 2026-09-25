@@ -50,7 +50,7 @@ fn publication_round_trip() {
             subjects: vec![],
             description: None,
             publisher: None,
-            modified: time::OffsetDateTime::now_utc(),
+            modified: Some(time::OffsetDateTime::now_utc()),
             published: None,
             translator: None,
             narrator: None,

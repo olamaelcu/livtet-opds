@@ -2332,7 +2332,6 @@ dependencies = [
  "camino-tempfile",
  "itertools 0.15.0",
  "livtet-opds-types",
- "livtet-test-utils",
  "mutants",
  "quick-xml",
  "roxmltree",

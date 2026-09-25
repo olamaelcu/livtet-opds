@@ -39,6 +39,10 @@ pub struct DefaultCatalog {
     pub description: String,
     /// OPDS protocol flavor: `"OPDS 1"` for Atom XML, `"OPDS 2"` for JSON.
     pub version: String,
+    /// Whether the catalog requires credentials before it will serve a feed.
+    /// Such catalogs cannot be subscribed to with one click; the picker must
+    /// collect credentials first.
+    pub requires_auth: bool,
 }
 
 /// The canonical list of default OPDS catalogs.
@@ -63,14 +67,16 @@ pub fn default_catalogs() -> Vec<DefaultCatalog> {
             url: "https://www.gutenberg.org/ebooks.opds/".to_string(),
             description: "70,000+ public-domain ebooks in EPUB, Kindle, and HTML.".to_string(),
             version: "OPDS 1".to_string(),
+            requires_auth: false,
         },
         DefaultCatalog {
             title: "Standard Ebooks".to_string(),
             url: "https://standardebooks.org/feeds/opds/".to_string(),
             description:
-                "Carefully typeset public-domain editions, EPUB-only. Patrons Circle (Basic auth)."
+                "Carefully typeset public-domain editions, EPUB-only. Patrons Circle members only."
                     .to_string(),
             version: "OPDS 1".to_string(),
+            requires_auth: true,
         },
         DefaultCatalog {
             title: "Internet Archive".to_string(),
@@ -78,6 +84,7 @@ pub fn default_catalogs() -> Vec<DefaultCatalog> {
             description: "Borrowable scans and modern ebooks from the Open Library. OPDS 2.0 JSON."
                 .to_string(),
             version: "OPDS 2".to_string(),
+            requires_auth: false,
         },
     ]
 }
@@ -89,6 +96,23 @@ mod tests {
     #[test]
     fn list_has_three_entries() {
         assert_eq!(default_catalogs().len(), 3);
+    }
+
+    #[test]
+    fn only_known_catalogs_require_authentication() {
+        let catalogs = default_catalogs();
+        let standard_ebooks = catalogs
+            .iter()
+            .find(|c| c.title == "Standard Ebooks")
+            .expect("Standard Ebooks preset");
+        assert!(standard_ebooks.requires_auth);
+        for catalog in catalogs.iter().filter(|c| c.title != "Standard Ebooks") {
+            assert!(
+                !catalog.requires_auth,
+                "{} should not require auth",
+                catalog.title
+            );
+        }
     }
 
     #[test]

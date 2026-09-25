@@ -1,7 +1,11 @@
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 use time::OffsetDateTime;
 
-use crate::{feed::Collection, link::Link};
+use crate::{
+    feed::Collection,
+    link::Link,
+    serde_util::{OneOrMany, deserialize_language},
+};
 
 #[cfg_attr(feature = "specta", derive(specta::Type))]
 #[cfg_attr(feature = "fake", derive(fake::Dummy))]
@@ -31,17 +35,26 @@ pub struct PublicationMetadata {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
 
-    #[serde(skip_serializing_if = "Option::is_none")]
+    /// OPDS 2.0 emits `language` as a string or an array of BCP47 tags.
+    #[serde(
+        default,
+        deserialize_with = "deserialize_language",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub language: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub publisher: Option<String>,
 
-    /// Required by OPDS 2.0 §2.1 — every publication entry MUST carry a
-    /// `modified` timestamp so clients can detect catalogue changes.
-    #[serde(with = "time::serde::rfc3339")]
-    #[cfg_attr(feature = "specta", specta(type = String))]
-    pub modified: OffsetDateTime,
+    /// OPDS 2.0 §2.1 marks `modified` as required, but real catalogues
+    /// (notably the Internet Archive) omit it. Absent means unknown.
+    #[serde(
+        default,
+        with = "time::serde::rfc3339::option",
+        skip_serializing_if = "Option::is_none"
+    )]
+    #[cfg_attr(feature = "specta", specta(type = Option<String>))]
+    pub modified: Option<OffsetDateTime>,
 
     #[serde(
         default,
@@ -51,7 +64,14 @@ pub struct PublicationMetadata {
     #[cfg_attr(feature = "specta", specta(type = Option<String>))]
     pub published: Option<OffsetDateTime>,
 
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    /// OPDS 2.0 spells this `author` and allows a bare string, a single
+    /// Contributor object, or an array of either. It is normalized to a list.
+    #[serde(
+        default,
+        alias = "author",
+        deserialize_with = "deserialize_authors",
+        skip_serializing_if = "Vec::is_empty"
+    )]
     pub authors: Vec<Author>,
 
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -71,6 +91,41 @@ pub struct PublicationMetadata {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub belongs_to: Option<BelongsTo>,
+}
+
+/// A contributor as OPDS 2.0 emits it: either a full Contributor object or a
+/// bare display name.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(untagged)]
+enum Contributor {
+    Named(Author),
+    Plain(String),
+}
+
+/// Normalize an OPDS 2.0 `author` into the internal `Vec<Author>`, accepting
+/// a string, a Contributor object, or an array of either.
+fn deserialize_authors<'de, D>(deserializer: D) -> Result<Vec<Author>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let parsed = Option::<OneOrMany<Contributor>>::deserialize(deserializer)?;
+    Ok(parsed
+        .map(|value| {
+            value
+                .into_vec()
+                .into_iter()
+                .map(|contributor| match contributor {
+                    Contributor::Named(author) => author,
+                    Contributor::Plain(name) => Author {
+                        name,
+                        sort_as: None,
+                        role: None,
+                        links: Vec::new(),
+                    },
+                })
+                .collect()
+        })
+        .unwrap_or_default())
 }
 
 impl PublicationMetadata {
